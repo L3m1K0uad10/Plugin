@@ -92,7 +92,7 @@ def check_for_single_line_comment(line, syntax, quotes_list):
     - int: The position of the single-line comment, or -1 if no valid comment is found.
     """
     for comment_symbol in syntax["single_line"]:
-        position = line.find(comment_symbol)
+        position = line.rfind(comment_symbol)
         
         # If comment symbol is found and is not within quotes, return its position
         if position != -1 and not is_within_quotes(position, quotes_list):
