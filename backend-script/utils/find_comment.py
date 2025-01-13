@@ -1,169 +1,177 @@
-COMMENT_SYNTAX = {
-    "python": {"single_line": ["#"], "multi_line": ["'''", '"""']},
-    "javascript": {"single_line": ["//"], "multi_line": ["/* */"]}
-}
 
-def look_for_quotes(data, open_quote=None):
-    """
-    Identify all quote positions (both single, double, and triple quotes), handling escaped quotes and multiline quotes.
-    Tracks open multiline quotes across lines.
+def track_quotes(line):
+    quotes = []
+    quote = None
+
+    for index, symbol in enumerate(line):
+        if symbol in ['"', "'"]:
+            if quote is None:  # No open quote yet
+                quote = symbol
+                quotes.append(index)  # Start of quote
+            elif quote == symbol:  # Closing the same type of quote
+                quotes.append(index)  # End of quote
+                quote = None  # Reset
+    return quotes
+
+
+
+def is_within_quotes(quotes, start_col, end_col):
     
-    Parameters:
-    - data (str): The current line of code.
-    - open_quote (str): Tracks any currently open multiline quote (''' or \"\"\").
-
-    Returns:
-    - list: A list of quote positions in the line.
-    - str: The updated state of open_quote (None if no multiline quote is open).
+    if len(quotes) != 0:
+        if start_col >= quotes[0] and end_col <= quotes[len(quotes) - 1]:
+            return True 
+    else:
+        return False
+    
+    
+def prev_sequence_check(line, start):
+    """  
+    purpose: apply heuristic for detecting whether an assumpted comment is really a comment or a string
     """
-    quotes_list = []
-    i = 0
-
-    while i < len(data):
-        char = data[i]
-
-        # Handle escaped quotes (e.g., \" or \')
-        if char == "\\" and i + 1 < len(data) and data[i + 1] in ('"', "'"):
-            i += 2
-            continue
-
-        # Handle triple quotes (''' or """)
-        if char in ('"', "'") and i + 2 < len(data) and data[i:i+3] in ("'''", '"""'):
-            triple_quote = data[i:i+3]
-            if open_quote is None:  # Starting a new multiline quote
-                open_quote = triple_quote
-                quotes_list.append(i)  # Start of triple quote
-                i += 3
-                continue
-            elif open_quote == triple_quote:  # Ending the current multiline quote
-                quotes_list.append(i + 2)  # End of triple quote
-                open_quote = None
-                i += 3
-                continue
-
-        # Handle single and double quotes (e.g., " or ')
-        if char in ('"', "'") and open_quote is None:  # Starting a new quote
-            quotes_list.append(i)  # Start of quote
-            open_quote = char
-        elif char in ('"', "'") and open_quote == char:  # Ending the current quote
-            quotes_list.append(i)  # End of quote
-            open_quote = None
-
-        i += 1
-
-    # Return the list of quotes and the current state of open_quote
-    return quotes_list, open_quote
+    
+    if len(line) != 0:
+        if line[start - 1] not in ["=", "+"] and line[start - 2] not in ["=", "+"]:
+            return True 
+        else:
+            return False
 
 
-def is_within_quotes(index, quotes_list):
-    """
-    Check if an index is within a pair of quotes.
+def find_comments(data):
 
-    Parameters:
-    - index (int): The position in the string to check.
-    - quotes_list (list): A list of quote positions, alternating between open and close.
-                          Example: [2, 5, 10, 15] -> '["..."]' and '["..."]'
+    single_comment_symbol = "#"
+    tracker = False # tracking the assumption of existence of inline comment
+    count, flag = [0, False] # for supporting some behaviour track regarding multi-line comment
+    line_tracker = None # assumpted inline line
+    col_tracker = None # assumpted inline col
 
-    Returns:
-    - bool: True if the index is within a quoted region, False otherwise.
-    """
-    # Ensure quotes_list has matching open-close pairs
-    if len(quotes_list) % 2 != 0:
-        # Unmatched quote, but continue processing
-        quotes_list = quotes_list[:-1]  # Ignore the unmatched opening quote
+    comment_data = []
 
-    for i in range(0, len(quotes_list), 2):  # Step through open-close pairs
-        if quotes_list[i] <= index <= quotes_list[i + 1]:
-            return True
-    return False
+    line_data = data.split("\n")
 
+    for index, line in enumerate(line_data):
 
-def check_for_single_line_comment(line, syntax, quotes_list):
-    """
-    Find the position of a single-line comment in a line, ignoring those inside quotes.
-
-    Parameters:
-    - line (str): The line of code to check for comments.
-    - syntax (dict): A dictionary containing the "single_line" comment delimiters.
-                     Example: {"single_line": ["#"]}
-    - quotes_list (list): A list of quote positions (open-close pairs) in the line.
-
-    Returns:
-    - int: The position of the single-line comment, or -1 if no valid comment is found.
-    """
-    for comment_symbol in syntax["single_line"]:
-        position = line.rfind(comment_symbol)
+        start_col = line.rfind(single_comment_symbol)
+        end_col = len(line) - 1
         
-        # If comment symbol is found and is not within quotes, return its position
-        if position != -1 and not is_within_quotes(position, quotes_list):
-            return position
-    
-    # No single-line comment found
-    return -1
-
-
-def check_for_multiline_comment(line, quotes_list):
-    """Detect multiline comments in Python."""
-    multiline_delimiters = ["'''", '"""']
-    for delimiter in multiline_delimiters:
-        start_pos = line.find(delimiter)
-        end_pos = line.rfind(delimiter)
-
-        if start_pos != -1 and end_pos != -1 and not is_within_quotes(start_pos, quotes_list) and not is_within_quotes(end_pos, quotes_list):
-            # Both start and end in the same line
-            return delimiter, start_pos
-
-        if start_pos != -1 and not is_within_quotes(start_pos, quotes_list):
-            return delimiter, start_pos
-
-        if end_pos != -1 and not is_within_quotes(end_pos, quotes_list):
-            return delimiter, end_pos
-
-    return None, None
-
-
-def find_comment(data, language="python"):
-    syntax = COMMENT_SYNTAX.get(language, {})
-    comments_data = []
-    is_inside_multiline = False
-    current_delimiter = None
-    multiline_start_line = None
-    open_quote = None  # Tracks if inside a multiline quote
-    count = 0
-
-    for i, line in enumerate(data):
-        # Get quotes list and update open_quote state
-        quotes_list, open_quote = look_for_quotes(line, open_quote)
-
-        # Check for single-line comments
-        single_line_pos = check_for_single_line_comment(line, syntax, quotes_list)
-        if single_line_pos != -1:
-            count += 1
-            comments_data.append({
-                "id": count,
-                "type": "single_line",
-                "line": i,
-                "col-1": single_line_pos,
-                "col-2": len(line) - 1
-            })
-
-        # Check for multiline comments
-        delimiter, position = check_for_multiline_comment(line, quotes_list)
-        if delimiter:
-            if not is_inside_multiline:
-                is_inside_multiline = True
-                current_delimiter = delimiter
-                multiline_start_line = i
-            elif delimiter == current_delimiter:
-                is_inside_multiline = False
-                comments_data.append({
-                    "id": count,
-                    "type": "multi_line",
-                    "start_line": multiline_start_line,
-                    "end_line": i,
-                    "start_col": position,
-                    "end_col": len(line) - 1
+        if tracker == False:
+            if start_col != -1 and not is_within_quotes(track_quotes(line), start_col, end_col) and start_col != end_col:
+                comment_data.append({
+                    "id": index,
+                    "type": "single line",
+                    "line": index,
+                    "start_col": start_col,
+                    "end_col": end_col
                 })
-                count += 1
+        else:
+            if start_col != -1 and start_col != end_col:
+                continue
+            for symbol in ["'''", '"""']:
+                start = line.find(symbol)
+                end = line.rfind(symbol)
 
-    return comments_data
+                if start == end:
+                    end = -1
+
+                if start != -1 and end == -1:
+                    tracker = False
+                    comment_data.append({
+                        "id": index,
+                        "type": "multiline",
+                        "start": {
+                            "line": line_tracker,
+                            "start_col": col_tracker
+                        },
+                        "end": {
+                            "line": index,
+                            "start_col": start
+                        }
+                    })
+                    flag = True
+                    count += 1
+                else:
+                    continue
+
+        if not flag:
+            for symbol in ["'''", '"""']:
+                start = line.find(symbol)
+                end = line.rfind(symbol)
+
+                if start == end:
+                    end = -1
+
+                if start != -1 and end != -1 and prev_sequence_check(line, start) and start != end:
+                    comment_data.append({
+                        "id": index,
+                        "type": "inline",
+                        "line": index,
+                        "start_col": start,
+                        "end_col": end_col
+                    })
+                if start != -1 and end == -1:
+                    tracker = True 
+                    line_tracker = index
+                    col_tracker = start
+        
+        if count == 1:
+            print(count, flag, index)
+            flag = False
+            count = 0
+        
+    return comment_data
+
+
+
+
+"""
+we go on the basics that a code is well written:
+
+- check each line code data after another
+- check for # or // last occurence in a line and if is not between any quotes(single, double, triple)
+    return single line comment 
+
+keep track of the quotes for further possible multi-line block check:
+2 - 1 check for triple quote if there is, look for a close triple and if =, + symbol does not precede the open triple quote  
+    return inline comment 
+2 - 2 only one triple quote is the line data
+    track T that for further possible multi-line block check
+check the next line datas:
+2 - 2 - 1 ignore all #, // pair double quote, single quote and escaped triple quote as they may be within a multi-line block
+2 - 3 find one triple quote in the line data matching the track quote T 
+    return multiline comment 
+"""
+
+
+if __name__ == "__main__":
+    
+    code = """
+# comment 1
+x = 2 + 3 # comment 2
+text = "# not comment 1"
+text = "# not comment 2" # comment 3
+
+cube_area = side * side
+
+'''comment 4'''
+text = '''not comment 3'''
+\"""comment 5\"""
+y = x - 2
+stack = None
+'''# comment 6'''
+
+circle_area = pi * math.pow(radius, 2)
+
+'''
+    comment 7 starts here
+    and finishes here
+'''
+
+list_ = [1, 2, 5]
+
+\"""
+    # comment 8
+\"""
+"""
+
+    comments = find_comments(code)
+    for comment in comments:
+        print(comment)
