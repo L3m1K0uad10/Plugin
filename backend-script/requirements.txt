@@ -3,3 +3,4 @@ djangorestframework
 django-cors-headers
 requests
 pillow==9.5.0
+pytest==8.3.4
