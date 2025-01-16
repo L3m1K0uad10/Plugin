@@ -46,9 +46,9 @@ def find_comments(data):
 
     comment_data = []
 
-    line_data = data.split("\n")
+    """ line_data = data.split("\n") """ # this line was for testing purposes where i have to split the data into line, but normally the data pass to the function should already be splitted
 
-    for index, line in enumerate(line_data):
+    for index, line in enumerate(data):
 
         start_col = line.rfind(single_comment_symbol)
         end_col = len(line) - 1

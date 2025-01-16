@@ -6,8 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .models import Input
 from utils.line_split import line_split
-from utils.find_comment import find_comment
-
+from utils.find_comment import find_comments
 
 
 @csrf_exempt
@@ -69,7 +68,7 @@ def InputView(request, slug = None, pk = None, *args, **kwargs):
                     input = Input.objects.get(id = pk)
                     code = input.code 
                     line_split_data = line_split(code)
-                    comments_data = find_comment(line_split_data)
+                    comments_data = find_comments(line_split_data)
                     return JsonResponse(comments_data, safe = False, status = 200)
                 except Exception as e:
                     return JsonResponse({"error": str(e)}, status = 404)
