@@ -4,7 +4,8 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 
-from utils.translate_comment import get_comments_translation
+#from utils.translate_comment import get_comments_translation
+from utils.translate_comment2 import get_comments_translation
 
 
 # Create your views here.
