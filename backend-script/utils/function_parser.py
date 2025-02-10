@@ -79,6 +79,12 @@ def find_function(instructions):
 
 if 1 && 2:
     return the function identifier detail
+
+NOTE: why we are not going to consider the case that there might have
+commented function definition, because anyway the comment will be translated
+later in the process too, for the project's sake.
+
+NOTE: need to handle special class method e.g __init__ which shouldn't be considered
 """
 
 
@@ -100,7 +106,27 @@ print(f"factorial of {n} is {factorial(n)}")
 print(f"C(4, 2) is {combination(4, 2)}")
 
 """
-code_splitted = code.strip().split("\n")
+
+code2 = """
+def combination(n, k):
+    # function for computing factorial
+    def factorial(num):
+        if num == 1 or num == 0:
+            return 1
+        return num * factorial(num - 1)
+
+    if n < k:
+        return
+    res = (factorial(n)) / (factorial(k) * factorial(n - k))
+    return res
+
+n = 4
+print(f"factorial of {n} is {factorial(n)}")
+print(f"C(4, 2) is {combination(4, 2)}")
+
+"""
+
+code_splitted = code2.strip().split("\n")
 
 res = find_function(code_splitted)
 for r in res:
