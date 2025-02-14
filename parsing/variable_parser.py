@@ -1,6 +1,7 @@
 import ast
 import builtins
 import keyword
+import json
 
 from .utils.helpers import find_all
 
@@ -19,6 +20,10 @@ def get_func_identifier(token_pos, func_token, instruction):
     lbracket = instruction.find("(")
 
     identifier_end_pos  = lbracket - 1 
+
+    varx = 10
+
+    varx = varx + 1 + (varx * varx)
 
     return identifier_start_pos, identifier_end_pos 
 '''
@@ -72,7 +77,7 @@ extractor.visit(parsed_code)
 extracted_variables = extractor.get_variables()
 
 # Print the extracted variables
-print("Extracted variables:", extracted_variables)
+# print("Extracted variables:", extracted_variables)
 
 
 # check the occurence and the length of the variable which will determined its start col and end col
@@ -107,24 +112,29 @@ class VariableDetails:
         json_data = {}
         count = 0
 
+        """  
+        TODO: handle the case where the occurence of a variable in a instruction is more than 1
+        """
+
         for line_variables in VariableDetails.variables:
             for variable in self.variables:
                 if variable in line_variables.keys():
-                    if variable not in json_data.keys():
-                        json_data[variable] = {
-                            1:  { 
-                                "line": line_variables["line"],
-                                "start_col": list(line_variables[variable])[0],
-                                "end_col": list(line_variables[variable])[0] + len(variable)
+                    for i in range(len(line_variables[variable])):
+                        if variable not in json_data.keys():
+                            json_data[variable] = {
+                                1:  { 
+                                    "line": line_variables["line"],
+                                    "start_col": list(line_variables[variable])[i],
+                                    "end_col": list(line_variables[variable])[i] + len(variable) - 1
+                                }
                             }
-                        }
-                    else:
-                        count = len(json_data[variable]) + 1
-                        json_data[variable][count] = {
-                            "line": line_variables["line"],
-                            "start_col": list(line_variables[variable])[0],
-                            "end_col": list(line_variables[variable])[0] + len(variable)
-                        }
+                        else:
+                            count = len(json_data[variable]) + 1
+                            json_data[variable][count] = {
+                                "line": line_variables["line"],
+                                "start_col": list(line_variables[variable])[i],
+                                "end_col": list(line_variables[variable])[i] + len(variable) - 1
+                            }
                 count = 0
 
         return json_data
@@ -135,81 +145,6 @@ variable_details = VariableDetails(splitted_code, extracted_variables)
 #res = variable_details.add()
 json_details = variable_details.get_detail()
 
-print(VariableDetails.variables)
-print(json_details)
-
-
-{
-    'token_pos': {
-        1: {
-            'line': 1, 
-            'start_col': 24, 
-            'end_col': 33
-        }, 
-        2: {
-            'line': 6, 
-            'start_col': 27, 
-            'end_col': 36
-        }
-    }, 
-    'func_token': {
-        1: {
-            'line': 1, 
-            'start_col': 35, 
-            'end_col': 45
-        }, 
-        2: {
-            'line': 6, 
-            'start_col': 44, 
-            'end_col': 54
-        }
-    }, 
-    'instruction': {
-        1: {
-            'line': 1, 
-            'start_col': 47, 
-            'end_col': 58
-        }, 
-        2: {
-            'line': 9, 
-            'start_col': 15, 
-            'end_col': 26
-        }
-    }, 
-    'identifier_start_pos': {
-        1: {
-            'line': 6, 
-            'start_col': 4, 
-            'end_col': 24
-        }, 
-        2: {
-            'line': 13, 
-            'start_col': 11, 
-            'end_col': 31
-        }
-    }, 
-    'lbracket': {
-        1: {
-            'line': 9, 
-            'start_col': 4, 
-            'end_col': 12
-        }, 
-        2: {
-            'line': 11, 
-            'start_col': 26, 
-            'end_col': 34
-        }
-    }, 
-    'identifier_end_pos': {
-        1: {
-            'line': 11, 
-            'start_col': 4, 
-            'end_col': 22
-        }, 
-        2: {
-            'line': 13, 
-            'start_col': 33, 
-            'end_col': 51
-        }
-    }
-}
+#print(VariableDetails.variables)
+#print("\n")
+#print(json.dumps(json_details, indent = 4))
