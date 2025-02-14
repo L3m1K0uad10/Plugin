@@ -6,6 +6,12 @@ import json
 from .utils.helpers import find_all
 
 
+"""  
+TODO: check it works on self.variable (class attributes)... because there are considered as variables
+
+also we consider class instance name belongs to variables group
+"""
+
 
 # Sample Python code to be parsed
 code = '''
@@ -26,6 +32,15 @@ def get_func_identifier(token_pos, func_token, instruction):
     varx = varx + 1 + (varx * varx)
 
     return identifier_start_pos, identifier_end_pos 
+
+class Person:
+    def __init__(self, name):
+        self.name = name
+    def display(self):
+        print(self.name)
+
+p1 = Person("Lemi")
+p1.display()
 '''
 
 """  
@@ -43,6 +58,7 @@ If you visit an assignment (Assign), the visitor will call visit_Assign().
 class VariableExtractor(ast.NodeVisitor):
     def __init__(self):
         self.variables = set()  # To store unique variable names
+        self.class_names = set() # it'll help with some filtering stuff
         self.builtins = set(dir(builtins))  # Set of built-in identifiers
         self.keywords = keyword.kwlist
 
@@ -56,9 +72,14 @@ class VariableExtractor(ast.NodeVisitor):
 
             the id store the name e.g Name(id = "fruit", ctx = Store())
             """
-            if node.id not in self.builtins and node.id not in self.keywords:
+            if node.id != "self" and node.id not in self.class_names and node.id not in self.builtins and node.id not in self.keywords:
+                # for avoiding retrieving class name instead of variables and self
                 self.variables.add(node.id)
         self.generic_visit(node)  # Continue visiting other nodes
+
+    def visit_ClassDef(self, node):  # for avoiding retrieving class name instead of variables
+        self.class_names.add(node.name)
+        self.generic_visit(node)
 
     def get_variables(self):
         return self.variables
@@ -77,7 +98,7 @@ extractor.visit(parsed_code)
 extracted_variables = extractor.get_variables()
 
 # Print the extracted variables
-# print("Extracted variables:", extracted_variables)
+print("Extracted variables:", extracted_variables)
 
 
 # check the occurence and the length of the variable which will determined its start col and end col
@@ -111,10 +132,6 @@ class VariableDetails:
 
         json_data = {}
         count = 0
-
-        """  
-        TODO: handle the case where the occurence of a variable in a instruction is more than 1
-        """
 
         for line_variables in VariableDetails.variables:
             for variable in self.variables:
