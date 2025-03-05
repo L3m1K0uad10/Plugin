@@ -106,11 +106,11 @@ class ClassIdentifierDetails:
 
         return json_data
     
-""" splitted_code = code.split("\n")
+splitted_code = code.split("\n")
 identifier_details = ClassIdentifierDetails(splitted_code, extracted_identifiers)
 #res = variable_details.add()
 json_details = identifier_details.get_detail()
 
 print(ClassIdentifierDetails.identifiers)
 print("\n")
-print(json.dumps(json_details, indent = 4)) """
+print(json.dumps(json_details, indent = 4))

@@ -164,4 +164,4 @@ json_details = variable_details.get_detail()
 
 #print(VariableDetails.variables)
 #print("\n")
-#print(json.dumps(json_details, indent = 4))
+print(json.dumps(json_details, indent = 4))
