@@ -3,7 +3,6 @@ import json
 import tokenize # library for tokenizing the code
 from io import StringIO # library for input/output string
 
-from utils.helpers import find_all
 
 
 class CommentExtractor(ast.NodeVisitor):
@@ -46,7 +45,7 @@ class CommentDetails:
             if token.type == tokenize.COMMENT:
                 self.comments["single comment"][len(self.comments["single comment"]) + 1] = {
                     "line": token.start[0],
-                    "start_col": token.start[1],
+                    "start_col": token.start[1] + 1,
                     "end_col": token.end[1]
                 }
             elif token.type == tokenize.STRING:
@@ -61,13 +60,13 @@ class CommentDetails:
                             if "+ - * / = ( [ {".find(precedent) == -1:
                                 self.comments["inline comment"][len(self.comments["inline comment"]) + 1] = {
                                     "line": token.start[0],
-                                    "start_col": token.start[1],
+                                    "start_col": token.start[1] + 1,
                                     "end_col": token.end[1]
                                 }
                         else:
                             self.comments["inline comment"][len(self.comments["inline comment"]) + 1] = {
                                 "line": token.start[0],
-                                "start_col": token.start[1],
+                                "start_col": token.start[1] + 1,
                                 "end_col": token.end[1]
                             }
                     else:
@@ -88,79 +87,3 @@ class CommentDetails:
     def get_details(self):
         return self.comments
     
-
-if __name__ == "__main__":
-    # Example usage
-    code = """
-# simple addition
-result = 5 + 5
-print(result) # printing result
-\"\"\"multiline comment\"\"\"
-'''multiline comment2'''
-print("# this is for testing comment")
-\"\"\"
-nothing is wrong it just a project
-\"\"\"
-
-# nested multi-line comments
-    '''
-        This is another multi-line comment.
-        It also contains a nested multi-line comment.
-    \"\"\"
-        Nested multi-line comment inside another multi-line comment.
-    \"\"\"
-    '''
-
-# nested strings that contain comment-like content 
-nested_string = '''
-This is a multi-line string inside a function.
-It contains another string that looks like a comment.
-\"\"\"
-Nested string inside a multi-line string.
-\"\"\"
-\"\"\"
-Another nested string inside a multi-line string.
-\"\"\"
-Deeply nested string inside another nested string.
-\"\"\"
-\"\"\"
-'''
-"""
-
-    details = CommentDetails(code)
-    print(json.dumps(details.get_details(), indent = 4))
-
-
-{
-    "single comment": {
-        "1": {
-            "line": 2,
-            "start_col": 0,
-            "end_col": 17
-        },
-        "2": {
-            "line": 4,
-            "start_col": 14,
-            "end_col": 31
-        }
-    },
-    "inline comment": {
-        "1": {
-            "line": 5,
-            "start_col": 0,
-            "end_col": 22
-        },
-        "2": {
-            "line": 6,
-            "start_col": 0,
-            "end_col": 22
-        },
-    },
-    "multi-line comment": {
-        "1": {
-            "start_line": 8,
-            "end_line": 10
-        }
-    }
-}
-
