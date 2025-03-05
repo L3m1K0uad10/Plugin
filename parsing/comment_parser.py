@@ -27,78 +27,71 @@ class CommentExtractor(ast.NodeVisitor):
 class CommentDetails:
     def __init__(self, code):
         self.code = code
-        self.details = {
+        self.comments = {
             "single comment": {},
             "inline comment": {},
-            "multi-line comment": {}
+            "multiline comment": {}
         }
-        self.extractor = CommentExtractor()
-        self.comments = self.extractor.extract_comments(code)
-        self.process_comments()
-    
-    def process_comments(self):
-        lines = self.code.split('\n')
-        for i, line in enumerate(lines):
-            for comment in self.comments:
-                if comment in line:
-                    start_col = line.index(comment)
-                    end_col = start_col + len(comment)
-                    if line.strip().startswith(comment):
-                        self.details["single comment"][len(self.details["single comment"]) + 1] = {
-                            "line": i + 1,
-                            "start_col": start_col,
-                            "end_col": end_col
-                        }
-                    else:
-                        self.details["inline comment"][len(self.details["inline comment"]) + 1] = {
-                            "line": i + 1,
-                            "start_col": start_col,
-                            "end_col": end_col
-                        }
+        self.extract_comments()
 
-        multi_line_comments = self.extract_multi_line_comments()
-        for idx, (start_line, end_line) in enumerate(multi_line_comments):
-            self.details["multi-line comment"][idx + 1] = {
-                "start_line": start_line,
-                "end_line": end_line
-            }
-    
-    def extract_multi_line_comments(self):
-        multi_line_comments = []
-        in_comment = False
-        start_line = 0
-        lines = self.code.split('\n')
-        for i, line in enumerate(lines):
-            if '"""' in line or "'''" in line:
-                if not in_comment:
-                    in_comment = True
-                    start_line = i + 1
-                else:
-                    in_comment = False
-                    end_line = i + 1
-                    multi_line_comments.append((start_line, end_line))
-        return multi_line_comments
+    def extract_comments(self):
+        tokens = tokenize.generate_tokens(StringIO(self.code).readline) # gets the information of the tokens like start and end position
+        #print(tokens)
+        """ line_comments = {}
+        multiline_comments = []
+        current_multiline = None """
+
+        for token in tokens:
+            #print(token)
+            if token.type == tokenize.COMMENT:
+                self.comments["single comment"][len(self.comments["single comment"]) + 1] = {
+                    "line": token.start[0],
+                    "start_col": token.start[1],
+                    "end_col": token.end[1]
+                }
+            elif token.type == tokenize.STRING:
+                if token.string.startswith(('"""', "'''")):
+                    # check if the possibility of nested strings that contain comment-like content
+                    # for that we will check if it is preceded by an arithmetic operator or an assignment operator
+
+                    if token.string.endswith(('"""', "'''")) and "\n" not in token.string:
+                        precedent =  token.line[token.start[1] - 3 : token.start[1]] # get the 3 characters before the start of the string for checking the possibility of nested strings
+
+                        if precedent != "":
+                            if "+ - * / = ( [ {".find(precedent) == -1:
+                                self.comments["inline comment"][len(self.comments["inline comment"]) + 1] = {
+                                    "line": token.start[0],
+                                    "start_col": token.start[1],
+                                    "end_col": token.end[1]
+                                }
+                        else:
+                            self.comments["inline comment"][len(self.comments["inline comment"]) + 1] = {
+                                "line": token.start[0],
+                                "start_col": token.start[1],
+                                "end_col": token.end[1]
+                            }
+                    else:
+                        precedent =  token.line[token.start[1] - 3 : token.start[1]] # get the 3 characters before the start of the string for checking the possibility of nested strings
+
+                        if precedent != "":
+                            if "+ - * / = ( [ {".find(precedent) == -1:
+                                self.comments["multiline comment"][len(self.comments["multiline comment"]) + 1] = {
+                                    "start_line": token.start[0],
+                                    "end_line": token.end[0]
+                                }
+                        else:
+                            self.comments["multiline comment"][len(self.comments["multiline comment"]) + 1] = {
+                                "start_line": token.start[0],
+                                "end_line": token.end[0]
+                            }    
 
     def get_details(self):
-        return self.details
+        return self.comments
     
 
-
 if __name__ == "__main__":
+    # Example usage
     code = """
-# This is a comment
-# This is another comment
-print("Hello, world!")
-
-''' This is a multi-line comment
-This is another line of the comment
-'''
-
-"# This is a string, not a comment"
-
-x = 5 # This is an inline comment # it continues
-"""
-    code2 = """
 # simple addition
 result = 5 + 5
 print(result) # printing result
@@ -108,52 +101,66 @@ print("# this is for testing comment")
 \"\"\"
 nothing is wrong it just a project
 \"\"\"
+
+# nested multi-line comments
+    '''
+        This is another multi-line comment.
+        It also contains a nested multi-line comment.
+    \"\"\"
+        Nested multi-line comment inside another multi-line comment.
+    \"\"\"
+    '''
+
+# nested strings that contain comment-like content 
+nested_string = '''
+This is a multi-line string inside a function.
+It contains another string that looks like a comment.
+\"\"\"
+Nested string inside a multi-line string.
+\"\"\"
+\"\"\"
+Another nested string inside a multi-line string.
+\"\"\"
+Deeply nested string inside another nested string.
+\"\"\"
+\"\"\"
+'''
 """
-    """ parsed_code = ast.parse(code)
 
-    extractor = CommentExtractor()
-    extractor.visit(parsed_code)
-
-    extracted_comments = extractor.extract_comments(code)
-
-    print("Extracted comments:", extracted_comments)
-
-    comment_details = CommentDetails(code.split("\n"), extracted_comments)
-    print(comment_details.get_detail())  """
-
-    details = CommentDetails(code2)
+    details = CommentDetails(code)
     print(json.dumps(details.get_details(), indent = 4))
 
 
 {
     "single comment": {
-        1: {
-            "line": 1,
+        "1": {
+            "line": 2,
             "start_col": 0,
-            "end_col": 15
+            "end_col": 17
         },
-        2: {
-            "line": 3,
+        "2": {
+            "line": 4,
             "start_col": 14,
-            "end_col": 29
+            "end_col": 31
         }
     },
     "inline comment": {
-        1: {
-            "line": 4,
+        "1": {
+            "line": 5,
             "start_col": 0,
             "end_col": 22
         },
-        2: {
-            "line": 5,
-            "start_col": 10,
-            "end_col": 23
-        }
+        "2": {
+            "line": 6,
+            "start_col": 0,
+            "end_col": 22
+        },
     },
     "multi-line comment": {
-        1: {
-            "start_line": 7,
-            "end_line": 9
+        "1": {
+            "start_line": 8,
+            "end_line": 10
         }
     }
 }
+
